@@ -1,0 +1,11 @@
+name = "goats-wrangler"
+type = "rust"
+account_id = "17aed4d14e84bd4ae5a6a02e1369ac63"
+workers_dev = true
+route = ""
+zone_id = ""
+
+kv_namespaces = [
+    { binding = "GoatsNs", id = "0e18f069365249238428145d8016bafc", preview_id = "0e18f069365249238428145d8016bafc" },
+    { binding = "FavoritesNs", id = "b3a112e4172648ef86cbbb3f26659db1", preview_id="b3a112e4172648ef86cbbb3f26659db1" },
+]
