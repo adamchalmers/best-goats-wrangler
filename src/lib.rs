@@ -9,7 +9,6 @@ mod utils;
 
 use crate::extensions::*;
 use crate::models::*;
-use crate::utils::*;
 use cfg_if::cfg_if;
 use handlebars::Handlebars;
 use http::StatusCode;
@@ -72,6 +71,12 @@ lazy_static! {
         reg
     };
 }
+
+// The Cloudflare Workers environment will bind your Workers KV namespaces to
+// the name "GoatsNS". This is configured in `wrangler.toml`. When your worker
+// is run on the Cloudflare edge, there'll be functions called GoatsNS.get,
+// GoatsNS.put and GoatsNS.delete, in the top-level JS namespace. This `extern`
+// block just tells Rust that those functions will be there at runtime.
 #[wasm_bindgen]
 extern "C" {
     type GoatsNs;
@@ -169,7 +174,7 @@ fn get_featured_goats() -> Promise {
 
 async fn render_home(request: Request) -> JsResult {
     let user_id = auth::get_user_id(&request);
-    console_logf!("User {:?}", user_id);
+    console_logf!("Rendering home for user {:?}", user_id);
     let favorites_value = get_favorites_from_user_id(&user_id).await?;
     let all_goats_value = JsFuture::from(get_featured_goats()).await?;
 
@@ -220,7 +225,6 @@ fn get_goat_list_items(goats: Vec<Goat>, favorites: &Vec<GoatId>) -> Vec<GoatLis
 
 fn proxy_image(path: String) -> Promise {
     let url = format!("https://storage.googleapis.com/best_goats{}", path);
-    console_log(&url.clone());
     let request = match Request::new_with_str(&url) {
         Ok(v) => v,
         Err(e) => return Promise::reject(&e),
@@ -306,25 +310,18 @@ async fn modify_favorites(
 
     if !modified {
         let headers = generate_redirect_headers(&redirect_url)?;
-        console_log("Redirecting...");
         let resp = generate_response("", 302, &headers)?;
         return Ok(JsValue::from(&resp));
     }
 
     let new_user_id = random_str();
     let favorites_json = serde_json::to_string(&favorites).ok_or_js_err()?;
-    console_logf!(
-        "Updating user {} with favorites {}",
-        new_user_id,
-        favorites_json
-    );
     let update_favorites_promise: Promise = FavoritesNs::put(&new_user_id, &favorites_json);
     let update_favorites_value = JsFuture::from(update_favorites_promise).await;
     match update_favorites_value {
         Ok(_v) => {
             let headers = generate_redirect_headers(&redirect_url)?;
             let cookie = auth::user_id_cookie(new_user_id);
-            console_logf!("{:?}", cookie);
             headers.set("set-cookie", &cookie.to_string())?;
 
             // Delete the old user_id favorites from KV

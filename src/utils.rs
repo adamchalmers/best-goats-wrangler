@@ -20,7 +20,3 @@ cfg_if! {
 macro_rules! console_logf {
     ($($t:tt)*) => (web_sys::console::log_1(&format_args!($($t)*).to_string().into()))
 }
-
-pub fn console_log<T: Into<wasm_bindgen::JsValue>>(t: T) {
-    web_sys::console::log_1(&t.into())
-}
