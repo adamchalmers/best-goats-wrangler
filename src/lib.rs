@@ -73,9 +73,9 @@ lazy_static! {
 }
 
 // The Cloudflare Workers environment will bind your Workers KV namespaces to
-// the name "GoatsNS". This is configured in `wrangler.toml`. When your worker
-// is run on the Cloudflare edge, there'll be functions called GoatsNS.get,
-// GoatsNS.put and GoatsNS.delete, in the top-level JS namespace. This `extern`
+// the name "GoatsNs". This is configured in `wrangler.toml`. When your worker
+// is run on the Cloudflare edge, there'll be functions called GoatsNs.get,
+// GoatsNs.put and GoatsNs.delete, in the top-level JS namespace. This `extern`
 // block just tells Rust that those functions will be there at runtime.
 #[wasm_bindgen]
 extern "C" {
@@ -168,18 +168,25 @@ async fn get_favorites_from_user_id(user_id: &Option<String>) -> JsResult {
     js_fut.await
 }
 
-fn get_featured_goats() -> Promise {
-    GoatsNs::get("featured", "json")
+async fn get_featured_goats() -> Result<Vec<Goat>, JsValue> {
+    let promise = GoatsNs::get("featured", "arrayBuffer");
+    let val = JsFuture::from(promise)
+        .await
+        .ok_or_js_err_with_msg("couldn't load Goats from Workers KV")?;
+    let typebuf: js_sys::Uint8Array = js_sys::Uint8Array::new(&val);
+    let mut body = vec![0; typebuf.length() as usize];
+    typebuf.copy_to(&mut body[..]);
+
+    let all_goats: Vec<Goat> = rmp_serde::from_read_ref(&body).ok_or_js_err()?;
+    Ok(all_goats)
 }
 
 async fn render_home(request: Request) -> JsResult {
     let user_id = auth::get_user_id(&request);
     console_logf!("Rendering home for user {:?}", user_id);
     let favorites_value = get_favorites_from_user_id(&user_id).await?;
-    let all_goats_value = JsFuture::from(get_featured_goats()).await?;
-
     let favorites: Vec<GoatId> = favorites_value.into_serde().ok_or_js_err()?;
-    let all_goats: Vec<Goat> = all_goats_value.into_serde().ok_or_js_err()?;
+    let all_goats = get_featured_goats().await?;
 
     #[derive(Serialize)]
     struct Data {
@@ -349,10 +356,8 @@ fn random_str() -> String {
 async fn render_favorites(req: Request) -> Result<JsValue, JsValue> {
     let user_id = auth::get_user_id(&req);
     let favorites_value = get_favorites_from_user_id(&user_id).await?;
-    let all_goats_value = JsFuture::from(get_featured_goats()).await?;
-
     let favorites: Vec<GoatId> = favorites_value.into_serde().ok_or_js_err()?;
-    let all_goats: Vec<Goat> = all_goats_value.into_serde().ok_or_js_err()?;
+    let all_goats = get_featured_goats().await?;
 
     let favorite_goats = all_goats
         .into_iter()

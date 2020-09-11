@@ -6,6 +6,6 @@ route = ""
 zone_id = ""
 
 kv_namespaces = [
-    { binding = "GoatsNs", id = "0e18f069365249238428145d8016bafc", preview_id = "0e18f069365249238428145d8016bafc" },
-    { binding = "FavoritesNs", id = "b3a112e4172648ef86cbbb3f26659db1", preview_id="b3a112e4172648ef86cbbb3f26659db1" },
+    { binding = "GoatsNs", id = "50d119fb12d64caf9212eb7cc5aaa05c", preview_id = "50d119fb12d64caf9212eb7cc5aaa05c" },
+    { binding = "FavoritesNs", id = "7915a26ab5d141fab17d50531ae3b4d5", preview_id="7915a26ab5d141fab17d50531ae3b4d5" },
 ]
