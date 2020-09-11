@@ -160,12 +160,18 @@ fn generate_response(body: &str, status: u16, headers: &Headers) -> Result<Respo
     Response::new_with_opt_str_and_init(Some(body), &init)
 }
 
-async fn get_favorites_from_user_id(user_id: &Option<String>) -> JsResult {
+async fn get_favorites_from_user_id(user_id: &Option<String>) -> Result<Vec<GoatId>, JsValue> {
     let js_fut = match user_id {
         Some(sid) => JsFuture::from(FavoritesNs::get(&sid, "json")),
         None => JsFuture::from(Promise::resolve(&JsValue::from(Array::new()))),
     };
-    js_fut.await
+    js_fut.await.and_then(|v| {
+        if v.is_null() {
+            Ok(vec![])
+        } else {
+            v.into_serde().ok_or_js_err()
+        }
+    })
 }
 
 async fn get_featured_goats() -> Result<Vec<Goat>, JsValue> {
@@ -184,9 +190,8 @@ async fn get_featured_goats() -> Result<Vec<Goat>, JsValue> {
 async fn render_home(request: Request) -> JsResult {
     let user_id = auth::get_user_id(&request);
     console_logf!("Rendering home for user {:?}", user_id);
-    let favorites_value = get_favorites_from_user_id(&user_id).await?;
-    let favorites: Vec<GoatId> = favorites_value.into_serde().ok_or_js_err()?;
     let all_goats = get_featured_goats().await?;
+    let favorites = get_favorites_from_user_id(&user_id).await?;
 
     #[derive(Serialize)]
     struct Data {
@@ -279,10 +284,9 @@ async fn modify_favorites(
         Err(e) => Promise::reject(&e),
     };
     let form_data_value = JsFuture::from(form_data_fut).await?;
-    let favorites_value = get_favorites_from_user_id(&orig_user_id).await?;
+    let mut favorites = get_favorites_from_user_id(&orig_user_id).await?;
 
     let form_data: FormData = form_data_value.dyn_into()?;
-    let mut favorites: Vec<GoatId> = favorites_value.into_serde().ok_or_js_err()?;
     let goat_id_str: String = match form_data.get("id").as_string() {
         Some(v) => v,
         None => {
@@ -355,9 +359,8 @@ fn random_str() -> String {
 
 async fn render_favorites(req: Request) -> Result<JsValue, JsValue> {
     let user_id = auth::get_user_id(&req);
-    let favorites_value = get_favorites_from_user_id(&user_id).await?;
-    let favorites: Vec<GoatId> = favorites_value.into_serde().ok_or_js_err()?;
     let all_goats = get_featured_goats().await?;
+    let favorites = get_favorites_from_user_id(&user_id).await?;
 
     let favorite_goats = all_goats
         .into_iter()

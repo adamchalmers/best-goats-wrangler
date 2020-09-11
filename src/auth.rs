@@ -1,4 +1,3 @@
-use crate::console_logf;
 use cookie::Cookie;
 use time::Duration;
 use web_sys::Request;
@@ -8,7 +7,6 @@ static USER_ID_COOKIE: &'static str = "user_id";
 /// Extract the user ID from the user's cookie, if one exists.
 pub fn get_user_id(req: &Request) -> Option<String> {
     let headers = req.headers();
-    console_logf!("{:?}", headers);
     let cookie_header = match headers.get("cookie") {
         Ok(Some(v)) => v,
         _ => return None,
